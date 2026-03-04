@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kuis Master TKJ XII - SMK Negeri 1 Tanjungpinang</title>
+    <style>
+        :root { --primary: #2c3e50; --secondary: #c0392b; --success: #27ae60; --accent: #2980b9; --bg: #f0f2f5; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--primary); margin: 0; padding: 10px; }
+        .container { max-width: 850px; margin: 20px auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        h1 { text-align: center; border-bottom: 4px solid var(--secondary); padding-bottom: 10px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        .metadata { display: flex; justify-content: space-between; font-size: 0.85em; background: #f8f9fa; padding: 10px; border-radius: 8px; margin-bottom: 20px; border-left: 5px solid var(--accent); }
+        
+        /* Study Mode Style */
+        .study-box { background: #eef7ff; border: 1px solid #b3d7ff; padding: 20px; border-radius: 10px; margin-bottom: 25px; display: none; }
+        .study-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .study-header h3 { margin: 0; color: var(--accent); }
+        
+        .question-text { font-size: 1.2em; font-weight: 600; line-height: 1.5; margin-bottom: 20px; }
+        .options { display: grid; gap: 12px; }
+        button.option { padding: 15px; border: 2px solid #e0e0e0; border-radius: 10px; background: white; cursor: pointer; text-align: left; transition: 0.3s; font-size: 1em; }
+        button.option:hover:not([disabled]) { border-color: var(--accent); background: #f0f8ff; }
+        button.option.correct { background: var(--success) !important; color: white; border-color: var(--success); }
+        button.option.wrong { background: var(--secondary) !important; color: white; border-color: var(--secondary); }
+        
+        /* Explanation Style */
+        .explanation { margin-top: 20px; padding: 15px; background: #f1f9f1; border-left: 5px solid var(--success); display: none; animation: slideDown 0.4s; }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Toggle Button Style */
+        .btn-toggle { background: #d1e7ff; border: 1px solid #a7c5eb; padding: 6px 15px; border-radius: 20px; cursor: pointer; font-size: 0.8em; font-weight: 600; color: #2980b9; transition: 0.2s; }
+        .btn-toggle:hover { background: #b3d7ff; }
+
+        .controls { margin-top: 30px; display: flex; justify-content: space-between; align-items: center; }
+        .btn { padding: 12px 25px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-next { background: var(--primary); color: white; }
+        .btn-study { background: var(--accent); color: white; }
+        
+        #result-screen { display: none; text-align: center; }
+        .score-circle { width: 150px; height: 150px; border-radius: 50%; border: 10px solid var(--success); display: flex; align-items: center; justify-content: center; font-size: 3em; font-weight: bold; margin: 20px auto; color: var(--success); }
+        .progress-bar { width: 100%; height: 10px; background: #eee; border-radius: 5px; margin-bottom: 20px; overflow: hidden; }
+        #progress-fill { height: 100%; background: var(--secondary); width: 0%; transition: 0.4s; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>UAS TKJ - Halberg</h1>
+    <div class="metadata">
+        <span>SMKN 1 TANJUNGPINANG</span>
+        <span id="pos-info">Materi 1/40</span>
+    </div>
+
+    <div class="progress-bar"><div id="progress-fill"></div></div>
+
+    <div id="study-screen" class="study-box">
+        <div class="study-header">
+            <h3 id="study-title">Penjelasan Materi</h3>
+            <button class="btn-toggle" id="study-toggle-btn" onclick="toggleStudyContent()">Sembunyikan Materi</button>
+        </div>
+        <p id="study-content"></p>
+        <button class="btn btn-study" onclick="startQuestion()">Saya Paham, Lanjut ke Soal</button>
+    </div>
+
+    <div id="quiz-screen" style="display:none;">
+        <div class="question-text" id="q-text"></div>
+        <div class="options" id="opt-container"></div>
+        
+        <div class="explanation" id="ex-box">
+            <strong>💡 Pembahasan:</strong> <span id="ex-text"></span>
+        </div>
+
+        <div class="controls">
+            <span>Level: <b id="lvl-info"></b></span>
+            <button class="btn btn-next" id="next-btn" onclick="nextStep()" style="visibility:hidden;">Selanjutnya &raquo;</button>
+        </div>
+    </div>
+
+    <div id="result-screen">
+        <h2>Ujian Selesai!</h2>
+        <div class="score-circle" id="final-score">0</div>
+        <p id="final-comment"></p>
+        <button class="btn btn-next" onclick="location.reload()">Ulangi Ujian</button>
+    </div>
+</div>
+
+<script>
+// Bank Soal: 40 Nomor dengan 3 Variasi per Nomor (Total 120 Soal)
+// Berdasarkan Kisi-Kisi Ujian Akhir Semester Genap TKJ 2025-2026
+const bankSoal = [
+    {
+        materi: "Pengenalan Dasar Mikrotik (Nomor 1)",
+        penjelasan: "RouterOS adalah sistem operasi yang digunakan pada perangkat Mikrotik. Untuk melakukan instalasi ulang jika sistem rusak, digunakan tool khusus bernama NetInstall.",
+        soal: [
+            { q: "Software atau tool yang digunakan untuk melakukan instalasi ulang sistem operasi Mikrotik RouterOS adalah...", a: "NetInstall", ex: "NetInstall digunakan untuk menginstal ulang RouterOS melalui media jaringan (Ethernet).", o: ["Winbox", "Webfig", "NetInstall", "Dude", "Putty"], lvl: "C2" },
+            { q: "Sistem operasi yang menjadi otak dari perangkat RouterBoard Mikrotik adalah...", a: "RouterOS", ex: "RouterOS merupakan sistem operasi berbasis kernel Linux yang dikembangkan oleh MikroTik.", o: ["Windows Server", "Debian Linux", "RouterOS", "IOS Cisco", "Android"], lvl: "C1" },
+            { q: "Metode apa yang paling efektif digunakan jika Routerboard mengalami kerusakan software atau 'bootloop'?", a: "Instalasi ulang menggunakan NetInstall", ex: "NetInstall dapat memulihkan RouterOS yang corrupt dengan mengirimkan paket OS via kabel LAN.", o: ["Reset fisik tombol reset", "Hapus file di Files", "Instalasi ulang menggunakan NetInstall", "Menghubungkan via SSH", "Reboot berulang kali"], lvl: "C3" }
+        ]
+    },
+    {
+        materi: "Manajemen Perangkat & Akses (Nomor 2)",
+        penjelasan: "Akses ke Mikrotik dapat melalui Winbox (GUI) atau Remote Protocol seperti SSH. Default port Winbox adalah 8291.",
+        soal: [
+            { q: "Secara default, port yang digunakan oleh aplikasi Winbox untuk meremote Mikrotik adalah...", a: "8291", ex: "Port 8291 adalah port default untuk komunikasi Winbox.", o: ["80", "22", "8291", "21", "443"], lvl: "C1" },
+            { q: "Protokol remote yang memberikan akses Command Line Interface (CLI) secara terenkripsi dan aman adalah...", a: "SSH", ex: "SSH (Secure Shell) menggunakan port 22 dan data dikirimkan dalam bentuk terenkripsi.", o: ["Telnet", "SSH", "HTTP", "FTP", "SNMP"], lvl: "C2" },
+            { q: "Jika kita ingin melakukan remote Mikrotik menggunakan browser, maka kita menggunakan fitur...", a: "Webfig", ex: "Webfig adalah antarmuka berbasis web untuk konfigurasi Mikrotik melalui port 80.", o: ["Winbox", "SSH", "Telnet", "Webfig", "API"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Konfigurasi IP & Interface (Nomor 3)",
+        penjelasan: "Perintah CLI sangat penting untuk pengecekan konfigurasi. Perintah 'ip address print' digunakan untuk melihat daftar alamat IP.",
+        soal: [
+            { q: "Perintah pada CLI (Command Line Interface) untuk melihat daftar IP Address yang terpasang di Mikrotik adalah...", a: "/ip address print", ex: "Perintah 'print' digunakan untuk menampilkan data pada submenu tertentu.", o: ["/ip route print", "/ip address add", "/ip address print", "/system identity print", "/interface print"], lvl: "C2" },
+            { q: "Simbol 'D' (Dynamic) pada tampilan IP address di Mikrotik biasanya menandakan bahwa IP tersebut didapat dari...", a: "DHCP Client", ex: "Flag 'D' muncul jika IP didapatkan secara otomatis melalui DHCP.", o: ["Konfigurasi manual", "Static Route", "DHCP Client", "Firewall", "NAT"], lvl: "C2" },
+            { q: "Menu manakah yang digunakan untuk memberi nama (Identity) pada perangkat Mikrotik?", a: "/system identity", ex: "Identity membantu administrator membedakan router satu dengan lainnya.", o: ["/ip address", "/system identity", "/interface", "/tool name", "/system reboot"], lvl: "C1" }
+        ]
+    },
+    {
+        materi: "Firewall & Keamanan (Nomor 4)",
+        penjelasan: "Firewall Filter menggunakan Chain. Chain 'input' memproses trafik yang masuk langsung ke prosesor router itu sendiri.",
+        soal: [
+            { q: "Chain pada firewall filter yang bertugas memproses paket data yang ditujukan langsung ke alamat IP router adalah...", a: "Input", ex: "Chain Input menangani trafik dari client yang tujuannya adalah router itu sendiri (misal: login Winbox).", o: ["Forward", "Output", "Input", "Prerouting", "Postrouting"], lvl: "C3" },
+            { q: "Jika kita ingin memblokir akses client agar tidak bisa ping ke router, maka chain yang digunakan adalah...", a: "Input", ex: "Ping yang ditujukan ke IP router diproses di chain Input.", o: ["Forward", "Output", "Input", "Src-nat", "Dst-nat"], lvl: "C3" },
+            { q: "Action pada firewall yang berfungsi menolak paket data namun memberikan pesan balasan (ICMP Message) adalah...", a: "Reject", ex: "Reject menolak paket dan memberi tahu pengirim, sedangkan Drop menolak tanpa pemberitahuan.", o: ["Accept", "Drop", "Reject", "Log", "Passthrough"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Monitoring & Troubleshooting (Nomor 5)",
+        penjelasan: "Tool 'Ping' digunakan untuk mengecek konektivitas antar perangkat dalam jaringan.",
+        soal: [
+            { q: "Tool dasar yang digunakan untuk menguji apakah suatu host atau alamat IP dapat dijangkau oleh router adalah...", a: "Ping", ex: "Ping mengirimkan paket ICMP Echo Request untuk mengecek koneksi.", o: ["Torch", "Traceroute", "Ping", "Netwatch", "Fasttrack"], lvl: "C1" },
+            { q: "Jika hasil ping menunjukkan 'Request Timed Out', kemungkinan penyebabnya adalah...", a: "Host tujuan tidak aktif atau ada firewall yang memblokir", ex: "RTO terjadi saat paket tidak kembali ke pengirim dalam waktu yang ditentukan.", o: ["Koneksi lancar", "Host tujuan tidak aktif atau ada firewall yang memblokir", "Bandwidth terlalu besar", "IP address duplikat", "DNS belum disetting"], lvl: "C3" },
+            { q: "Parameter 'Time' (ms) pada hasil ping menunjukkan...", a: "Waktu tempuh paket bolak-balik (Latensi)", ex: "Semakin kecil angka ms, semakin cepat respons koneksi tersebut.", o: ["Jumlah paket yang terkirim", "Besar ukuran file", "Waktu tempuh paket bolak-balik (Latensi)", "Kecepatan download", "Sisa kuota internet"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Routing Statis & Dinamis (Nomor 6)",
+        penjelasan: "Static Route adalah penentuan jalur routing secara manual oleh administrator ke network tujuan tertentu.",
+        soal: [
+            { q: "Parameter utama yang wajib diisi saat membuat Static Route adalah...", a: "Dst-Address dan Gateway", ex: "Kita harus tahu alamat tujuan (Destination) dan pintu keluarnya (Gateway).", o: ["IP Address dan Netmask", "Dst-Address dan Gateway", "MAC Address dan Interface", "DNS dan DHCP", "SSID dan Password"], lvl: "C3" },
+            { q: "Jika di tabel routing terdapat flag 'AS', ini berarti rute tersebut berstatus...", a: "Active Static", ex: "A (Active) berarti rute aktif, S (Static) berarti rute dikonfigurasi manual.", o: ["Active Dynamic", "Active Static", "Asynchronous", "Active Subnet", "Archive Simple"], lvl: "C2" },
+            { q: "Gateway '0.0.0.0/0' pada konfigurasi routing sering disebut sebagai...", a: "Default Route", ex: "Default route menangani semua paket yang tujuannya tidak terdaftar di tabel routing spesifik.", o: ["Local Route", "Default Route", "Static Route", "Loopback", "Direct Connect"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Konfigurasi IP & Interface (Nomor 7)",
+        penjelasan: "Fitur Bridge menggabungkan beberapa interface fisik menjadi satu segment layer 2 (seperti switch).",
+        soal: [
+            { q: "Fitur pada Mikrotik yang digunakan untuk menggabungkan dua atau lebih interface menjadi satu segment LAN yang sama adalah...", a: "Bridge", ex: "Bridge membuat interface virtual yang bertindak sebagai switch logic.", o: ["Routing", "NAT", "Bridge", "Firewall", "Queue"], lvl: "C2" },
+            { q: "Keuntungan menggunakan Bridge pada Mikrotik adalah...", a: "Komunikasi antar port berada di Layer 2 tanpa perlu routing", ex: "Data antar port bridge dilewatkan tanpa melalui proses routing yang berat.", o: ["Meningkatkan bandwidth internet", "Komunikasi antar port berada di Layer 2 tanpa perlu routing", "Mengamankan router dari hacker", "Memberikan IP otomatis", "Mempercepat proses booting"], lvl: "C3" },
+            { q: "Interface yang masuk ke dalam konfigurasi Bridge disebut dengan...", a: "Port", ex: "Kita harus mendaftarkan interface fisik ke dalam tab 'Ports' pada menu Bridge.", o: ["Slaves", "Port", "Gate", "Hub", "Master"], lvl: "C1" }
+        ]
+    },
+    {
+        materi: "Manajemen Perangkat & Akses (Nomor 8)",
+        penjelasan: "Reset konfigurasi dapat dilakukan melalui tombol fisik atau menu 'System Reset Configuration' di Winbox/CLI.",
+        soal: [
+            { q: "Opsi 'No Default Configuration' saat melakukan reset di Mikrotik berfungsi untuk...", a: "Menghapus semua settingan dan membiarkan router kosong tanpa IP", ex: "Tanpa default config, router tidak akan memiliki IP 192.168.88.1.", o: ["Menyisakan settingan IP", "Menghapus semua settingan dan membiarkan router kosong tanpa IP", "Mengunci router selamanya", "Melakukan update otomatis", "Menyimpan backup"], lvl: "C2" },
+            { q: "Bagaimana cara melakukan hard reset pada Routerboard jika lupa password login?", a: "Menekan tombol reset saat kabel power dicolokkan", ex: "Tombol reset harus ditahan hingga lampu indikator USR/ACT berkedip.", o: ["Mematikan router selama 1 jam", "Menekan tombol reset saat kabel power dicolokkan", "Menghubungkan ke Winbox", "Mengganti kabel LAN", "Menelepon ISP"], lvl: "C3" },
+            { q: "Fitur 'Safe Mode' di Winbox berguna untuk...", a: "Membatalkan otomatis konfigurasi yang menyebabkan putus koneksi", ex: "Jika koneksi terputus saat Safe Mode aktif, settingan terakhir akan otomatis dibatalkan.", o: ["Mempercepat akses internet", "Membatalkan otomatis konfigurasi yang menyebabkan putus koneksi", "Menghapus virus di router", "Mode hemat energi", "Menyembunyikan IP"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Routing Statis & Dinamis (Nomor 9)",
+        penjelasan: "Dynamic Routing menggunakan protokol seperti OSPF atau RIP untuk bertukar tabel routing secara otomatis.",
+        soal: [
+            { q: "Protokol routing dinamis yang paling umum digunakan untuk jaringan skala menengah hingga besar di Mikrotik adalah...", a: "OSPF", ex: "Open Shortest Path First (OSPF) sangat populer karena efisiensinya.", o: ["RIP", "BGP", "OSPF", "EIGRP", "Static"], lvl: "C2" },
+            { q: "Kelebihan utama Dynamic Routing dibandingkan Static Routing adalah...", a: "Update rute otomatis jika terjadi perubahan topologi", ex: "Admin tidak perlu mengubah manual tabel rute jika ada kabel yang putus.", o: ["Lebih mudah dikonfigurasi untuk 2 router", "Update rute otomatis jika terjadi perubahan topologi", "Tidak membutuhkan CPU yang besar", "Tidak butuh IP address", "Lebih aman dari serangan"], lvl: "C3" },
+            { q: "Protokol routing dinamis yang digunakan untuk menghubungkan antar Autonomous System (AS) di internet adalah...", a: "BGP", ex: "Border Gateway Protocol (BGP) adalah tulang punggung routing internet dunia.", o: ["OSPF", "RIP", "BGP", "ICMP", "TCP"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Konfigurasi IP & Interface (Nomor 10)",
+        penjelasan: "DHCP Server memberikan IP otomatis kepada client, sedangkan DHCP Client meminta IP dari sumber (ISP).",
+        soal: [
+            { q: "Fitur yang digunakan agar router mendapatkan IP Address secara otomatis dari ISP adalah...", a: "DHCP Client", ex: "DHCP Client dipasang pada interface yang terhubung ke modem/ISP.", o: ["DHCP Server", "DHCP Relay", "DHCP Client", "DNS Server", "NAT"], lvl: "C2" },
+            { q: "Menu 'Leases' pada DHCP Server di Mikrotik berfungsi untuk...", a: "Melihat daftar client yang sedang meminjam IP", ex: "Leases menunjukkan status IP, MAC Address, dan sisa waktu peminjaman IP client.", o: ["Mengatur kecepatan internet", "Melihat daftar client yang sedang meminjam IP", "Membuat rute internet", "Menghapus firewall", "Membatasi waktu browsing"], lvl: "C2" },
+            { q: "Langkah pertama konfigurasi DHCP Server menggunakan wizard di Winbox adalah klik tombol...", a: "DHCP Setup", ex: "DHCP Setup memandu konfigurasi IP Pool, Gateway, dan DNS secara otomatis.", o: ["Add New", "DHCP Setup", "Apply", "Check Status", "Reset"], lvl: "C1" }
+        ]
+    },
+    {
+        materi: "Firewall & Keamanan (Nomor 11)",
+        penjelasan: "NAT (Network Address Translation) digunakan untuk menerjemahkan IP lokal ke IP Publik agar bisa internetan.",
+        soal: [
+            { q: "Action pada NAT yang digunakan untuk membagi koneksi internet dari satu IP Publik ke banyak IP Lokal adalah...", a: "Masquerade", ex: "Masquerade menerjemahkan banyak IP lokal menjadi satu IP yang terpasang di interface publik.", o: ["Dst-nat", "Accept", "Masquerade", "Redirect", "Drop"], lvl: "C3" },
+            { q: "Chain pada NAT yang digunakan untuk membelokkan trafik dari internet ke server di dalam jaringan lokal (Port Forwarding) adalah...", a: "Dstnat", ex: "Destination NAT digunakan jika server lokal ingin diakses dari luar jaringan.", o: ["Srcnat", "Dstnat", "Input", "Forward", "Output"], lvl: "C3" },
+            { q: "Parameter 'Out-Interface' pada settingan Masquerade biasanya diisi dengan...", a: "Interface yang mengarah ke internet (ISP)", ex: "NAT dilakukan pada paket yang keluar menuju jalur internet.", o: ["Interface LAN", "Bridge", "Interface yang mengarah ke internet (ISP)", "WLAN", "Loopback"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Firewall & Keamanan (Nomor 12)",
+        penjelasan: "Address List mempermudah pengelompokan banyak IP address ke dalam satu nama untuk aturan firewall.",
+        soal: [
+            { q: "Fitur Firewall yang digunakan untuk mengelompokkan banyak alamat IP ke dalam satu grup nama adalah...", a: "Address List", ex: "Address List membuat rule firewall lebih ringkas dan mudah dikelola.", o: ["Mangle", "Address List", "Layer 7 Protocol", "Service Port", "NAT"], lvl: "C2" },
+            { q: "Apa keuntungan menggunakan Address List pada Mikrotik?", a: "Satu rule firewall dapat berlaku untuk banyak IP sekaligus", ex: "Cukup panggil nama list-nya di parameter 'Src. Address List' atau 'Dst. Address List'.", o: ["Mempercepat booting", "Satu rule firewall dapat berlaku untuk banyak IP sekaligus", "Mengganti IP secara otomatis", "Menghapus log router", "Menghemat listrik"], lvl: "C3" },
+            { q: "Tipe entri pada Address List yang otomatis terhapus dalam waktu tertentu disebut...", a: "Dynamic with Timeout", ex: "Kita bisa mengatur berapa lama sebuah IP berada dalam grup Address List tersebut.", o: ["Static", "Permanent", "Dynamic with Timeout", "Floating", "Recursive"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Firewall & Keamanan (Nomor 13)",
+        penjelasan: "Layer 7 Protocol digunakan untuk memfilter konten berdasarkan pola teks (RegEx) dalam paket data.",
+        soal: [
+            { q: "Firewall yang bekerja dengan cara mencari pola teks (Regular Expression) pada paket data aplikasi adalah...", a: "Layer 7 Protocol", ex: "L7 dapat mendeteksi protokol aplikasi seperti YouTube atau Facebook meskipun portnya standar.", o: ["Filter Rules", "Mangle", "Layer 7 Protocol", "NAT", "Service Port"], lvl: "C3" },
+            { q: "Mengapa penggunaan Layer 7 Protocol harus dibatasi atau digunakan dengan bijak?", a: "Sangat membebani kinerja CPU router", ex: "Proses pencocokan pola RegEx pada setiap paket membutuhkan resource CPU yang tinggi.", o: ["Karena merusak hardware", "Sangat membebani kinerja CPU router", "Hanya bisa untuk 1 client", "Mudah dibobol hacker", "Menghapus konfigurasi IP"], lvl: "C3" },
+            { q: "Layer 7 Protocol di Mikrotik biasanya digabungkan dengan fitur firewall lainnya, yaitu...", a: "Filter Rules atau Mangle", ex: "L7 mendefinisikan polanya, Filter/Mangle yang melakukan tindakan (Drop/Mark).", o: ["DHCP", "Bridge", "Filter Rules atau Mangle", "Routing", "Wireless"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Firewall & Keamanan (Nomor 14)",
+        penjelasan: "Chain 'forward' digunakan untuk memproses trafik yang hanya melintasi router (dari client ke internet atau sebaliknya).",
+        soal: [
+            { q: "Chain pada Firewall Filter yang digunakan untuk memproses trafik data dari client menuju internet adalah...", a: "Forward", ex: "Forward menangani trafik yang lewat (transit) melalui router.", o: ["Input", "Output", "Forward", "Prerouting", "Postrouting"], lvl: "C3" },
+            { q: "Jika Anda ingin memblokir akses komputer Staff ke komputer Manager (beda network), chain mana yang digunakan?", a: "Forward", ex: "Komunikasi antar network yang berbeda melalui router diproses di chain Forward.", o: ["Input", "Forward", "Output", "Srcnat", "Dstnat"], lvl: "C3" },
+            { q: "Perbedaan utama antara chain Input dan Forward adalah...", a: "Input untuk trafik ke router, Forward untuk trafik antar jaringan", ex: "Input tujuannya IP Router, Forward tujuannya IP lain diluar router.", o: ["Input lebih lambat", "Input untuk trafik ke router, Forward untuk trafik antar jaringan", "Forward hanya untuk wireless", "Input tidak bisa blokir IP", "Sama saja tidak ada bedanya"], lvl: "C3" }
+        ]
+    },
+    {
+        materi: "Monitoring & Troubleshooting (Nomor 15)",
+        penjelasan: "Tool 'Torch' digunakan untuk memantau trafik secara real-time pada suatu interface.",
+        soal: [
+            { q: "Tool pada Mikrotik yang berfungsi memantau penggunaan bandwidth secara real-time berdasarkan IP dan Protokol adalah...", a: "Torch", ex: "Torch membantu admin melihat siapa yang sedang menghabiskan bandwidth saat ini.", o: ["Ping", "Torch", "Netwatch", "Traceroute", "Profiles"], lvl: "C2" },
+            { q: "Informasi apa saja yang bisa ditampilkan oleh tool Torch?", a: "Source Address, Destination Address, dan Tx/Rx Rate", ex: "Torch sangat detail menampilkan asal, tujuan, dan kecepatan trafik paket.", o: ["Password user hotspot", "Source Address, Destination Address, dan Tx/Rx Rate", "Suhu router", "Serial number perangkat", "Log aktivitas login"], lvl: "C2" },
+            { q: "Saat menjalankan Torch pada interface WLAN, Anda bisa melihat...", a: "Besar trafik yang digunakan oleh masing-masing client wireless", ex: "Admin bisa tahu client mana yang sedang melakukan download besar di wifi.", o: ["IP address router tetangga", "Besar trafik yang digunakan oleh masing-masing client wireless", "Isi pesan WhatsApp client", "Kekuatan sinyal BTS ISP", "Daftar file di memory router"], lvl: "C3" }
+        ]
+    },
+    {
+        materi: "Monitoring & Troubleshooting (Nomor 16)",
+        penjelasan: "Netwatch adalah tool untuk memantau status host. Jika host mati, Netwatch bisa menjalankan script otomatis.",
+        soal: [
+            { q: "Tool yang dapat menjalankan script secara otomatis ketika sebuah host tidak merespon (Down) adalah...", a: "Netwatch", ex: "Netwatch memantau IP tertentu dan memiliki tab 'Up' dan 'Down' untuk script.", o: ["Ping", "Traceroute", "Netwatch", "Scheduler", "Watchdog"], lvl: "C2" },
+            { q: "Parameter 'Interval' pada Netwatch menentukan...", a: "Seberapa sering router melakukan pengecekan ke host tujuan", ex: "Misal disetting 1 menit, maka tiap 1 menit router akan ping ke target.", o: ["Berapa lama router menyala", "Kecepatan internet maksimal", "Seberapa sering router melakukan pengecekan ke host tujuan", "Waktu reset otomatis", "Delay perpindahan jalur"], lvl: "C2" },
+            { q: "Contoh penggunaan Netwatch yang paling umum adalah...", a: "Pindah jalur internet otomatis (Failover) saat ISP 1 mati", ex: "Script pada tab Down bisa digunakan untuk mengubah gateway routing.", o: ["Membatasi jam internet", "Membuat user hotspot", "Pindah jalur internet otomatis (Failover) saat ISP 1 mati", "Mengganti nama SSID", "Update firmware"], lvl: "C3" }
+        ]
+    },
+    {
+        materi: "Monitoring & Troubleshooting (Nomor 17)",
+        penjelasan: "Connection Tracking mencatat semua koneksi yang melewati router. Mematikan fitur ini akan menonaktifkan Firewall NAT.",
+        soal: [
+            { q: "Fitur yang mencatat status koneksi (established, related, invalid) pada Mikrotik disebut...", a: "Connection Tracking", ex: "Terletak di menu IP > Firewall > Connections.", o: ["Fasttrack", "Connection Tracking", "NAT", "Mangle", "Service Port"], lvl: "C2" },
+            { q: "Apa yang terjadi jika 'Connection Tracking' diubah menjadi 'No' (Disabled)?", a: "Semua fitur Firewall NAT dan Filter tidak akan berfungsi", ex: "Firewall stateful membutuhkan data dari connection tracking.", o: ["Internet semakin cepat", "Router akan restart", "Semua fitur Firewall NAT dan Filter tidak akan berfungsi", "IP address akan hilang", "Password router terhapus"], lvl: "C3" },
+            { q: "Status koneksi 'Established' pada Connection Tracking berarti...", a: "Koneksi yang sudah terjalin dan sedang berkomunikasi", ex: "Paket merupakan bagian dari koneksi yang sudah dikenal sebelumnya.", o: ["Koneksi baru akan dimulai", "Koneksi yang sudah terjalin dan sedang berkomunikasi", "Koneksi yang error", "Koneksi yang diblokir", "Koneksi dari luar negeri"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Monitoring & Troubleshooting (Nomor 18)",
+        penjelasan: "Fasttrack digunakan untuk mempercepat pengiriman paket data dengan melewati beberapa proses firewall demi menghemat CPU.",
+        soal: [
+            { q: "Fitur untuk mempercepat throughput paket data dengan melewati proses pemeriksaan firewall yang berulang disebut...", a: "Fasttrack", ex: "Fasttrack mengurangi penggunaan CPU dengan memproses paket secara cepat.", o: ["Fast Path", "Fasttrack", "Speed Test", "Turbo Mode", "Bandwidth Test"], lvl: "C2" },
+            { q: "Kelemahan saat kita mengaktifkan Fasttrack pada sebuah rute trafik adalah...", a: "Beberapa fitur Queue dan Firewall tidak bisa memantau paket tersebut", ex: "Karena paket 'melompat', fitur yang butuh pemeriksaan mendalam tidak terbaca.", o: ["Internet menjadi lambat", "Router cepat panas", "Beberapa fitur Queue dan Firewall tidak bisa memantau paket tersebut", "Ping menjadi tinggi", "Hardisk cepat penuh"], lvl: "C3" },
+            { q: "Fasttrack biasanya diterapkan menggunakan Action pada menu...", a: "Firewall Filter atau Mangle", ex: "Action 'fasttrack-connection' dipilih untuk trafik yang sudah 'established' dan 'related'.", o: ["IP Route", "Firewall Filter atau Mangle", "System Resource", "Tools Graphing", "Interface Ethernet"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Manajemen Perangkat & Akses (Nomor 19)",
+        penjelasan: "SNMP (Simple Network Management Protocol) digunakan untuk memonitoring kondisi perangkat dari server pusat.",
+        soal: [
+            { q: "Protokol yang digunakan untuk mengirim data statistik router ke aplikasi monitoring seperti The Dude atau MRTG adalah...", a: "SNMP", ex: "SNMP memungkinkan pengambilan data load CPU, trafik interface, dll secara remote.", o: ["SMTP", "SNMP", "SSH", "Telnet", "ICMP"], lvl: "C2" },
+            { q: "Informasi apa yang biasanya diambil melalui SNMP untuk monitoring berkala?", a: "Traffic interface dan penggunaan resource router", ex: "Data ini digunakan untuk membuat grafik penggunaan jaringan.", o: ["History browsing user", "Isi file manager", "Traffic interface dan penggunaan resource router", "Password admin", "Daftar email masuk"], lvl: "C2" },
+            { q: "Untuk keamanan, parameter apa yang harus disamakan antara Router dan Monitoring Server pada SNMP v1/v2?", a: "Community Name", ex: "Default community name biasanya adalah 'public'.", o: ["Username", "Community Name", "SSID", "Port Number", "Identity"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Monitoring & Troubleshooting (Nomor 20)",
+        penjelasan: "Tool 'Traceroute' digunakan untuk melihat rute/lompatan (hop) paket menuju host tujuan.",
+        soal: [
+            { q: "Tool yang menampilkan urutan router (hop) yang dilewati paket untuk sampai ke tujuan adalah...", a: "Traceroute", ex: "Traceroute membantu mendeteksi di titik mana koneksi terputus.", o: ["Ping", "Torch", "Traceroute", "BGP", "Neighbor"], lvl: "C1" },
+            { q: "Jika saat traceroute muncul tanda bintang (* * *), artinya adalah...", a: "Router di titik tersebut tidak merespon atau memblokir ICMP", ex: "Tanda bintang menandakan request timed out di hop tersebut.", o: ["Jaringan sangat cepat", "Router di titik tersebut tidak merespon atau memblokir ICMP", "Tujuan sudah tercapai", "Koneksi terenkripsi", "Router sedang restart"], lvl: "C3" },
+            { q: "Di Winbox, tool Traceroute dapat ditemukan pada menu...", a: "Tools > Traceroute", ex: "Menu Tools berisi berbagai utilitas diagnostik jaringan.", o: ["IP > Firewall", "System > Routerboard", "Tools > Traceroute", "Interface > Traffic", "Files"], lvl: "C1" }
+        ]
+    },
+    {
+        materi: "Firewall & Keamanan (Nomor 21)",
+        penjelasan: "Action 'Redirect' pada NAT membelokkan paket ke port lain di dalam router itu sendiri (sering untuk Transparent Proxy).",
+        soal: [
+            { q: "Action NAT yang digunakan untuk memaksa client masuk ke port Proxy internal router (port 8080) adalah...", a: "Redirect", ex: "Redirect membelokkan trafik ke service yang berjalan di router itu sendiri.", o: ["Masquerade", "Accept", "Redirect", "Dst-nat", "Jump"], lvl: "C3" },
+            { q: "Untuk membuat Transparent Proxy, trafik dari port 80 (HTTP) diarahkan ke port...", a: "8080", ex: "Port 8080 adalah port default untuk Web Proxy di Mikrotik.", o: ["21", "22", "8080", "443", "8291"], lvl: "C2" },
+            { q: "Salah satu fungsi utama Web Proxy pada Mikrotik adalah...", a: "Melakukan caching dan pemblokiran situs tertentu", ex: "Proxy dapat menyimpan konten web (cache) agar akses berikutnya lebih cepat.", o: ["Mempercepat koneksi game online", "Melakukan caching dan pemblokiran situs tertentu", "Mengganti alamat IP publik", "Membuat sinyal wifi lebih kuat", "Menghapus log system"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Manajemen Bandwidth (Nomor 22)",
+        penjelasan: "Simple Queue adalah metode termudah untuk membatasi bandwidth berdasarkan target IP atau interface.",
+        soal: [
+            { q: "Metode manajemen bandwidth yang paling mudah dikonfigurasi pada Mikrotik untuk satu target IP adalah...", a: "Simple Queue", ex: "Simple Queue cukup menentukan target IP dan Max Limit Download/Upload.", o: ["Queue Tree", "PCQ", "Mangle", "Burst Mode", "Simple Queue"], lvl: "C1" },
+            { q: "Urutan pemrosesan pada Simple Queue adalah dari...", a: "Atas ke bawah (Top to Bottom)", ex: "Router membaca rule dari nomor urut 0 ke bawah.", o: ["Bawah ke atas", "Atas ke bawah (Top to Bottom)", "Acak", "Berdasarkan IP terbesar", "Berdasarkan pemakaian tertinggi"], lvl: "C2" },
+            { q: "Parameter 'Max Limit' pada Simple Queue berfungsi untuk...", a: "Menentukan batas kecepatan maksimal yang didapat client", ex: "Max Limit adalah kecepatan 'up to' yang diberikan kepada target.", o: ["Menentukan jaminan bandwidth minimal", "Menentukan batas kecepatan maksimal yang didapat client", "Memberikan bonus kecepatan", "Mematikan internet client", "Menghitung total kuota"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Firewall & Keamanan (Nomor 23)",
+        penjelasan: "Mangle digunakan untuk menandai paket data (Mark Packet/Mark Connection) agar bisa diproses lebih lanjut oleh Queue atau Routing.",
+        soal: [
+            { q: "Fitur firewall yang khusus digunakan untuk menandai paket (marking) adalah...", a: "Mangle", ex: "Mangle memberikan 'tanda' pada paket agar Queue Tree tahu paket mana yang harus dilimit.", o: ["Filter Rules", "NAT", "Mangle", "Address List", "Service Port"], lvl: "C2" },
+            { q: "Jika kita ingin memisahkan trafik Video Streaming dengan Browsing biasa, kita menggunakan...", a: "Mangle", ex: "Mangle dapat menandai trafik berdasarkan port atau konten.", o: ["DHCP", "Bridge", "Mangle", "Web Proxy", "Netwatch"], lvl: "C3" },
+            { q: "Action 'Mark Connection' pada Mangle biasanya dilakukan sebelum action...", a: "Mark Packet", ex: "Praktik terbaik adalah menandai koneksinya dulu, baru menandai paket di dalam koneksi tersebut.", o: ["Accept", "Drop", "Mark Packet", "Reject", "Masquerade"], lvl: "C3" }
+        ]
+    },
+    {
+        materi: "Fitur Layanan Mikrotik (Nomor 24)",
+        penjelasan: "VPN (Virtual Private Network) memungkinkan komunikasi aman antar cabang melalui jaringan publik (internet).",
+        soal: [
+            { q: "Teknologi yang memungkinkan kantor cabang di Jakarta terhubung secara lokal ke kantor pusat di Batam via internet adalah...", a: "VPN", ex: "VPN membuat 'terowongan' (tunnel) privat di atas jaringan publik.", o: ["VLAN", "VPN", "NAT", "Bridge", "Proxy"], lvl: "C2" },
+            { q: "Jenis VPN di Mikrotik yang menggunakan protokol TCP/UDP dan sangat fleksibel menembus firewall adalah...", a: "SSTP atau OpenVPN", ex: "SSTP menggunakan port 443 yang biasanya dibuka di setiap firewall.", o: ["PPTP", "L2TP", "SSTP atau OpenVPN", "IPSec", "EoIP"], lvl: "C3" },
+            { q: "Protokol tunneling milik Mikrotik yang memungkinkan penggabungan (Bridge) interface antar dua router jarak jauh adalah...", a: "EoIP", ex: "Ethernet over IP (EoIP) menciptakan tunnel Layer 2.", o: ["PPTP", "EoIP", "BGP", "RIP", "SSH"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Fitur Layanan Mikrotik (Nomor 25)",
+        penjelasan: "Hotspot Mikrotik menyediakan fitur otentikasi user (login page) dan manajemen waktu/kuota.",
+        soal: [
+            { q: "Fitur Mikrotik yang memaksa pengguna memasukkan username dan password di halaman web sebelum bisa internetan adalah...", a: "Hotspot", ex: "Hotspot menyediakan portal Captive Portal untuk otentikasi.", o: ["PPPoE", "Hotspot", "DHCP", "Firewall", "Wireless"], lvl: "C1" },
+            { q: "Tool untuk membuat banyak username hotspot secara otomatis dengan sistem voucher adalah...", a: "User Manager", ex: "User Manager (Userman) adalah paket tambahan Mikrotik untuk RADIUS server.", o: ["Winbox", "Webfig", "User Manager", "NetInstall", "Dude"], lvl: "C2" },
+            { q: "Parameter 'Shared Users' pada Profile Hotspot berfungsi untuk...", a: "Menentukan berapa banyak perangkat yang bisa login dengan 1 akun secara bersamaan", ex: "Jika diisi 1, maka akun tersebut tidak bisa dipakai login di HP lain jika sudah aktif.", o: ["Membatasi kecepatan download", "Menentukan berapa banyak perangkat yang bisa login dengan 1 akun secara bersamaan", "Menghitung jumlah total user", "Membagi bandwidth secara rata", "Menentukan masa aktif voucher"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Manajemen Bandwidth (Nomor 26)",
+        penjelasan: "Queue Tree digunakan untuk manajemen bandwidth yang lebih kompleks dan membutuhkan fitur Mangle.",
+        soal: [
+            { q: "Perbedaan utama Queue Tree dibanding Simple Queue adalah...", a: "Queue Tree memerlukan Mangle untuk menandai trafik", ex: "Simple Queue bisa langsung tanpa mangle, Queue Tree wajib pakai Packet Mark.", o: ["Queue Tree lebih mudah", "Queue Tree memerlukan Mangle untuk menandai trafik", "Queue Tree hanya untuk wireless", "Queue Tree tidak bisa melimit download", "Simple Queue lebih berat bagi CPU"], lvl: "C3" },
+            { q: "Parameter 'Parent' pada Queue Tree digunakan untuk...", a: "Menentukan di interface mana atau di bawah antrian mana limitasi diterapkan", ex: "Parent bisa berupa interface fisik (ether/wlan) atau Global.", o: ["Memberikan nama user", "Menentukan di interface mana atau di bawah antrian mana limitasi diterapkan", "Mengatur password bandwidth", "Menentukan IP Address", "Menghubungkan ke server"], lvl: "C2" },
+            { q: "Queue Tree diproses setelah trafik melewati proses...", a: "Packet Marking (Mangle)", ex: "Tanpa packet mark dari Mangle, Queue Tree tidak akan berjalan.", o: ["DHCP", "DNS", "Packet Marking (Mangle)", "NAT", "Reset"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Pengenalan Dasar Mikrotik (Nomor 27)",
+        penjelasan: "Lisensi Mikrotik menentukan fitur dan jumlah user yang diizinkan. Level 6 adalah lisensi tertinggi.",
+        soal: [
+            { q: "Tingkatan lisensi RouterOS Mikrotik yang memiliki fitur paling lengkap (unlimited) adalah...", a: "Level 6", ex: "Level 6 biasanya ada pada perangkat CCR atau dibeli untuk PC Router.", o: ["Level 1", "Level 3", "Level 4", "Level 5", "Level 6"], lvl: "C1" },
+            { q: "Lisensi level berapa yang biasanya sudah disertakan (pre-installed) pada perangkat Routerboard seri Wireless (seperti hAP lite)?", a: "Level 4", ex: "Level 4 mendukung fitur AP Bridge untuk wireless.", o: ["Level 0", "Level 1", "Level 3", "Level 4", "Level 6"], lvl: "C2" },
+            { q: "Apa yang terjadi jika masa trial lisensi Level 0 (24 jam) telah habis?", a: "Konfigurasi tidak bisa diubah dan harus diinstal ulang/beli lisensi", ex: "Level 0 hanya untuk uji coba singkat.", o: ["Router tetap normal", "Kecepatan internet menurun", "Konfigurasi tidak bisa diubah dan harus diinstal ulang/beli lisensi", "Wifi mati saja", "Ganti password otomatis"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Firewall & Keamanan (Nomor 28)",
+        penjelasan: "DMZ (Demilitarized Zone) digunakan untuk mengizinkan akses dari internet ke server lokal dengan tetap menjaga keamanan jaringan internal lainnya.",
+        soal: [
+            { q: "Istilah untuk menempatkan server lokal di area terbuka agar bisa diakses dari internet namun tetap terpisah dari LAN utama adalah...", a: "DMZ", ex: "DMZ mengisolasi server dari jaringan lokal untuk keamanan.", o: ["DHCP", "DMZ", "NAT", "Bridge", "WLAN"], lvl: "C2" },
+            { q: "Fitur port forwarding (Dst-nat) adalah bagian dari implementasi...", a: "DMZ", ex: "Dst-nat membelokkan trafik publik ke IP lokal server di DMZ.", o: ["Load Balancing", "DMZ", "Failover", "Bandwidth Management", "Routing"], lvl: "C3" },
+            { q: "Alasan keamanan utama menggunakan DMZ adalah...", a: "Jika server dihack, pelaku tidak bisa langsung mengakses jaringan lokal utama", ex: "Ada firewall yang membatasi akses dari DMZ ke LAN.", o: ["Mempercepat akses web", "Jika server dihack, pelaku tidak bisa langsung mengakses jaringan lokal utama", "Menghemat penggunaan IP Publik", "Mencegah virus masuk ke router", "Supaya server tidak cepat panas"], lvl: "C3" }
+        ]
+    },
+    {
+        materi: "Konfigurasi IP & Interface (Nomor 29)",
+        penjelasan: "DNS (Domain Name System) menerjemahkan nama domain (seperti google.com) menjadi alamat IP.",
+        soal: [
+            { q: "Fitur yang harus dicentang agar Mikrotik bertindak sebagai DNS Server bagi client di jaringan lokal adalah...", a: "Allow Remote Requests", ex: "Jika tidak dicentang, client tidak bisa menggunakan IP router sebagai DNS mereka.", o: ["Enabled", "Allow Remote Requests", "Cache DNS", "Forward DNS", "Use IP Private"], lvl: "C2" },
+            { q: "IP DNS Server milik Google yang sangat populer digunakan adalah...", a: "8.8.8.8 dan 8.8.4.4", ex: "Ini adalah DNS publik gratis dari Google.", o: ["1.1.1.1", "192.168.1.1", "8.8.8.8 dan 8.8.4.4", "202.134.0.155", "10.10.10.1"], lvl: "C1" },
+            { q: "Menu untuk memasukkan IP DNS secara manual di Mikrotik adalah...", a: "/ip dns", ex: "Settingan DNS utama ada di menu IP > DNS.", o: ["/ip address", "/ip dhcp-server", "/ip dns", "/system identity", "/interface dns"], lvl: "C1" }
+        ]
+    },
+    {
+        materi: "Konfigurasi IP & Interface (Nomor 30)",
+        penjelasan: "Static DNS digunakan untuk membuat domain lokal sendiri atau membelokkan domain tertentu ke IP yang diinginkan.",
+        soal: [
+            { q: "Fitur di Mikrotik yang memungkinkan kita membuat 'google.com' mengarah ke IP lokal kita sendiri disebut...", a: "Static DNS", ex: "Menu IP > DNS > Static digunakan untuk entri DNS manual.", o: ["Dynamic DNS", "Static DNS", "DNS Relay", "DNS Cache", "DNS Proxy"], lvl: "C3" },
+            { q: "Kapan kita butuh menggunakan Static DNS?", a: "Saat ingin memetakan nama domain ke server lokal tanpa beli domain internet", ex: "Misal: 'ujian.lokal' diarahkan ke IP server ujian di sekolah.", o: ["Saat koneksi internet mati", "Saat ingin memetakan nama domain ke server lokal tanpa beli domain internet", "Saat ingin mempercepat browsing", "Saat ingin ganti IP publik", "Saat konfigurasi NAT"], lvl: "C3" },
+            { q: "Jika kita mengisi 'Static DNS' untuk sebuah website, mana yang didahulukan oleh Mikrotik?", a: "Static DNS", ex: "Router akan mengecek tabel static terlebih dahulu sebelum bertanya ke server DNS luar.", o: ["DNS dari ISP", "Static DNS", "DNS Google", "Semuanya bersamaan", "Tergantung kecepatan"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Manajemen Bandwidth (Nomor 31)",
+        penjelasan: "PCQ (Per Connection Queue) digunakan untuk membagi bandwidth secara otomatis dan merata kepada banyak client.",
+        soal: [
+            { q: "Algoritma pada Queue Mikrotik yang mampu membagi bandwidth secara adil dan otomatis ke seluruh user adalah...", a: "PCQ", ex: "PCQ (Per Connection Queue) sangat efektif untuk jaringan dengan banyak client.", o: ["FIFO", "RED", "PCQ", "SFQ", "Drop Tail"], lvl: "C2" },
+            { q: "Parameter 'Rate' pada konfigurasi PCQ yang diisi angka '0' berarti...", a: "Bandwidth dibagi rata berdasarkan sisa bandwidth yang tersedia", ex: "Angka 0 berarti dinamis (semua sisa dibagi habis ke yang aktif).", o: ["Client tidak dapat internet", "Kecepatan maksimal 1 Mbps", "Bandwidth dibagi rata berdasarkan sisa bandwidth yang tersedia", "Unlimited tanpa batas", "Error pada sistem"], lvl: "C3" },
+            { q: "Kelebihan utama PCQ dibandingkan membuat ratusan Simple Queue secara manual adalah...", a: "Lebih praktis dan hemat resource CPU", ex: "Hanya butuh satu rule untuk menangani seluruh subnet IP.", o: ["Lebih cepat koneksinya", "Lebih praktis dan hemat resource CPU", "Bisa memblokir situs", "Bisa mengganti IP client", "Lebih aman dari serangan"], lvl: "C3" }
+        ]
+    },
+    {
+        materi: "Manajemen Perangkat & Akses (Nomor 32)",
+        penjelasan: "Keamanan akses router dapat ditingkatkan dengan mengubah port default atau membatasi akses berdasarkan IP tertentu.",
+        soal: [
+            { q: "Untuk meningkatkan keamanan, dimanakah kita bisa mengubah port default Winbox atau SSH?", a: "IP > Services", ex: "Menu Services mengatur port dan status layanan akses router.", o: ["IP > Firewall", "System > Users", "IP > Services", "Tools > Graphing", "System > Identity"], lvl: "C2" },
+            { q: "Opsi 'Available From' pada IP Services berfungsi untuk...", a: "Membatasi hanya IP tertentu yang boleh meremote router", ex: "Sangat efektif mencegah serangan remote dari IP luar yang tidak dikenal.", o: ["Menentukan jam operasional router", "Membatasi hanya IP tertentu yang boleh meremote router", "Menentukan lokasi GPS router", "Menentukan interface keluar", "Melihat history login"], lvl: "C2" },
+            { q: "Layanan akses mana yang sebaiknya dimatikan (disabled) jika tidak digunakan demi alasan keamanan?", a: "Telnet dan HTTP", ex: "Telnet mengirim data teks biasa tanpa enkripsi, sangat rawan disadap.", o: ["Winbox", "SSH", "Telnet dan HTTP", "DNS", "Bandwidth Test"], lvl: "C3" }
+        ]
+    },
+    {
+        materi: "Konfigurasi IP & Interface (Nomor 33)",
+        penjelasan: "ARP (Address Resolution Protocol) menghubungkan alamat IP (Layer 3) dengan alamat fisik MAC (Layer 2).",
+        soal: [
+            { q: "Protokol yang bertugas mencari tahu MAC Address dari suatu IP Address di jaringan lokal adalah...", a: "ARP", ex: "ARP (Address Resolution Protocol) bekerja di antara Layer 2 dan Layer 3.", o: ["DNS", "DHCP", "ARP", "TCP", "UDP"], lvl: "C2" },
+            { q: "Fitur 'ARP Reply Only' pada interface Mikrotik digunakan untuk...", a: "Hanya mengizinkan client dengan IP dan MAC terdaftar yang bisa konek", ex: "Mencegah client mengganti IP manual secara sembarangan.", o: ["Mempercepat koneksi LAN", "Hanya mengizinkan client dengan IP dan MAC terdaftar yang bisa konek", "Menghapus cache DNS", "Membatalkan routing", "Membuat hotspot"], lvl: "C3" },
+            { q: "Tabel yang berisi daftar pasangan IP dan MAC Address di Mikrotik disebut...", a: "ARP List", ex: "Dapat dilihat di menu IP > ARP.", o: ["Host List", "Neighbor List", "ARP List", "Route List", "Interface List"], lvl: "C1" }
+        ]
+    },
+    {
+        materi: "Fitur Layanan Mikrotik (Nomor 34)",
+        penjelasan: "Scheduler digunakan untuk menjalankan script atau perintah secara otomatis berdasarkan jadwal waktu tertentu.",
+        soal: [
+            { q: "Fitur untuk menjalankan perintah 'reboot' otomatis setiap jam 00:00 malam adalah...", a: "Scheduler", ex: "System > Scheduler berfungsi menjadwalkan eksekusi script.", o: ["Netwatch", "Watchdog", "Scheduler", "Scripts", "Uptime"], lvl: "C2" },
+            { q: "Jika Anda ingin mematikan interface WLAN otomatis pada jam sekolah berakhir, Anda menggunakan...", a: "Scheduler", ex: "Admin bisa membuat schedule dengan interval harian.", o: ["Firewall", "Scheduler", "Queue", "Routing", "ARP"], lvl: "C3" },
+            { q: "Parameter 'Interval' pada Scheduler diisi '1d 00:00:00' artinya script dijalankan setiap...", a: "1 Hari sekali", ex: "d = day, h = hour, m = minute, s = second.", o: ["1 Jam sekali", "1 Hari sekali", "1 Minggu sekali", "Tiap menit", "Hanya sekali saja"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Firewall & Keamanan (Nomor 35)",
+        penjelasan: "Raw Firewall adalah fitur firewall yang memproses paket sangat awal sebelum Connection Tracking, sangat efisien untuk memblokir serangan DDoS.",
+        soal: [
+            { q: "Bagian firewall yang memproses paket sebelum masuk ke Connection Tracking adalah...", a: "Raw", ex: "Raw firewall sangat ringan karena tidak membebani CPU dengan pelacakan koneksi.", o: ["Filter", "Mangle", "NAT", "Raw", "Service Port"], lvl: "C3" },
+            { q: "Raw Firewall sangat efektif digunakan untuk menangani serangan...", a: "DDoS (Denial of Service)", ex: "Membuang ribuan paket sampah (flood) tanpa membebani sistem pelacakan koneksi.", o: ["Virus komputer", "Lupa password", "DDoS (Denial of Service)", "Kabel putus", "Sinyal lemah"], lvl: "C3" },
+            { q: "Kelemahan menggunakan Raw Firewall untuk memblokir trafik adalah...", a: "Tidak bisa memfilter berdasarkan status koneksi (established/new)", ex: "Karena bekerja sebelum connection tracking, status koneksi tidak terbaca.", o: ["Router jadi lambat", "Hanya bisa untuk port 80", "Tidak bisa memfilter berdasarkan status koneksi (established/new)", "IP router jadi hilang", "Harus bayar lisensi lagi"], lvl: "C3" }
+        ]
+    },
+    {
+        materi: "Routing Statis & Dinamis (Nomor 36)",
+        penjelasan: "Distance pada routing digunakan untuk menentukan prioritas rute. Nilai distance terkecil adalah yang paling diprioritaskan.",
+        soal: [
+            { q: "Jika terdapat dua rute ke tujuan yang sama, rute mana yang akan dipilih oleh router?", a: "Rute dengan nilai Distance terkecil", ex: "Distance 1 lebih utama daripada Distance 2.", o: ["Rute dengan IP terbesar", "Rute dengan nilai Distance terkecil", "Rute yang paling bawah", "Rute dengan Gateway wireless", "Rute yang paling lama"], lvl: "C2" },
+            { q: "Berapakah nilai default Distance untuk Static Route?", a: "1", ex: "Secara default, rute manual (static) memiliki distance 1.", o: ["0", "1", "10", "110", "255"], lvl: "C1" },
+            { q: "Teknik 'Floating Static Route' (jalur cadangan) dilakukan dengan cara...", a: "Memberikan nilai Distance yang lebih tinggi pada link cadangan", ex: "Misal ISP utama distance 1, ISP cadangan distance 5. Jalur 5 hanya aktif jika jalur 1 mati.", o: ["Memasang dua kabel LAN", "Memberikan nilai Distance yang lebih tinggi pada link cadangan", "Menghapus rute utama", "Menggunakan protokol OSPF", "Membatasi bandwidth"], lvl: "C3" }
+        ]
+    },
+    {
+        materi: "Firewall & Keamanan (Nomor 37)",
+        penjelasan: "Action 'Drop' membuang paket tanpa memberikan informasi balik, sangat baik untuk keamanan karena menyembunyikan status router.",
+        soal: [
+            { q: "Action firewall yang membuang paket secara diam-diam tanpa mengirim pesan balasan ICMP ke pengirim adalah...", a: "Drop", ex: "Drop membuat pengirim 'menggantung' (timeout).", o: ["Accept", "Reject", "Drop", "Passthrough", "Tarpit"], lvl: "C2" },
+            { q: "Apa perbedaan hasil pada sisi client saat terkena action 'Reject' dibandingkan 'Drop'?", a: "Reject memberikan pesan 'Connection Refused', Drop hanya 'Timeout'", ex: "Reject memberitahu client bahwa akses ditolak.", o: ["Sama saja", "Reject lebih cepat", "Reject memberikan pesan 'Connection Refused', Drop hanya 'Timeout'", "Drop lebih berat bagi CPU", "Reject menghapus IP client"], lvl: "C3" },
+            { q: "Action firewall mana yang paling disarankan untuk memblokir serangan hacker dari internet?", a: "Drop", ex: "Drop lebih aman karena tidak memberikan informasi bahwa ada 'kehidupan' (router) di IP tersebut.", o: ["Accept", "Reject", "Log", "Drop", "Jump"], lvl: "C3" }
+        ]
+    },
+    {
+        materi: "Fitur Layanan Mikrotik (Nomor 38)",
+        penjelasan: "Load Balancing PCC (Per Connection Classifier) membagi beban trafik ke beberapa jalur ISP secara seimbang dan stabil.",
+        soal: [
+            { q: "Metode Load Balancing di Mikrotik yang paling stabil karena memastikan satu koneksi client tetap pada satu jalur ISP adalah...", a: "PCC", ex: "PCC (Per Connection Classifier) menghindari error login pada website perbankan/https.", o: ["ECMP", "NTH", "PCC", "Failover", "Bridge"], lvl: "C3" },
+            { q: "Load Balancing digunakan jika kita memiliki...", a: "Lebih dari satu jalur ISP", ex: "Menggabungkan atau membagi beban trafik ke 2 atau lebih jalur internet.", o: ["Satu router yang lemot", "Lebih dari satu jalur ISP", "Banyak client wireless", "IP publik yang statis", "Server internal"], lvl: "C2" },
+            { q: "Dalam konfigurasi PCC, kita perlu menandai rute menggunakan...", a: "Routing Mark di Mangle", ex: "Routing Mark menentukan paket harus keluar lewat Gateway ISP yang mana.", o: ["Packet Mark", "Connection Mark", "Routing Mark di Mangle", "Address List", "DNS Static"], lvl: "C3" }
+        ]
+    },
+    {
+        materi: "Routing Statis & Dinamis (Nomor 39)",
+        penjelasan: "Recursive Gateway adalah teknik mengecek ketersediaan internet bukan hanya sampai modem, tapi sampai ke IP tujuan di internet (seperti 8.8.8.8).",
+        soal: [
+            { q: "Teknik pengecekan gateway routing yang memantau konektivitas hingga ke IP di internet (seperti 8.8.8.8) disebut...", a: "Recursive Routing", ex: "Memastikan jalur benar-benar bisa akses internet, bukan sekadar kabel tercolok.", o: ["Static Routing", "Recursive Routing", "Dynamic Routing", "Bridge Routing", "Default Routing"], lvl: "C3" },
+            { q: "Parameter 'Check Gateway' pada menu IP Route biasanya menggunakan metode...", a: "Ping", ex: "Router akan ping ke gateway secara berkala untuk memastikan statusnya reachable.", o: ["HTTP", "SSH", "Ping", "SNMP", "ARP"], lvl: "C2" },
+            { q: "Apa kegunaan utama dari 'Check Gateway: Ping'?", a: "Mematikan rute secara otomatis jika gateway tidak bisa di-ping", ex: "Sangat penting untuk sistem failover otomatis (perpindahan jalur).", o: ["Mempercepat download", "Mematikan rute secara otomatis jika gateway tidak bisa di-ping", "Membatasi user", "Menyembunyikan router", "Menghapus log"], lvl: "C2" }
+        ]
+    },
+    {
+        materi: "Fitur Layanan Mikrotik (Nomor 40)",
+        penjelasan: "Watchdog adalah fitur keamanan hardware yang akan merestart router secara otomatis jika sistem hang atau tidak merespon.",
+        soal: [
+            { q: "Fitur hardware pada Mikrotik yang akan melakukan reboot otomatis jika sistem mengalami 'hang' adalah...", a: "Watchdog", ex: "Watchdog memonitor kesehatan sistem dan melakukan restart jika ada kegagalan.", o: ["Netwatch", "Watchdog", "Scheduler", "Reset Button", "Power Cycle"], lvl: "C2" },
+            { q: "Opsi 'Watch Address' pada fitur Watchdog digunakan untuk...", a: "Merestart router jika IP tujuan tidak bisa dijangkau", ex: "Jika ping ke Watch Address gagal dalam waktu tertentu, router akan reboot.", o: ["Menentukan IP admin", "Merestart router jika IP tujuan tidak bisa dijangkau", "Membatasi akses IP", "Monitoring trafik IP", "Ganti IP otomatis"], lvl: "C3" },
+            { q: "Dimana letak menu konfigurasi Watchdog di Mikrotik?", a: "System > Watchdog", ex: "Menu System berisi pengaturan inti perangkat.", o: ["IP > Firewall", "Tools > Watchdog", "System > Watchdog", "Interface > Ethernet", "Files"], lvl: "C1" }
+        ]
+    }
+];
+
+    let currentStep = 0;
+    let isStudyMode = true;
+    let score = 0;
+    let answered = false;
+    let currentSoalObj = null;
+    
+    // State untuk menyembunyikan MATERI (Default: Tampil)
+    let isStudyHidden = false;
+
+    function toggleStudyContent() {
+        isStudyHidden = !isStudyHidden;
+        applyStudyVisibility();
+    }
+
+    function applyStudyVisibility() {
+        const content = document.getElementById('study-content');
+        const btn = document.getElementById('study-toggle-btn');
+        if (isStudyHidden) {
+            content.style.display = 'none';
+            btn.innerText = 'Tampilkan Materi';
+        } else {
+            content.style.display = 'block';
+            btn.innerText = 'Sembunyikan Materi';
+        }
+    }
+
+    function shuffle(arr) { return arr.sort(() => Math.random() - 0.5); }
+
+    function initStep() {
+        isStudyMode = true;
+        answered = false;
+        document.getElementById('study-screen').style.display = 'block';
+        document.getElementById('quiz-screen').style.display = 'none';
+        document.getElementById('ex-box').style.display = 'none'; // Sembunyikan box pembahasan soal lama
+        document.getElementById('next-btn').style.visibility = 'hidden';
+
+        const data = bankSoal[currentStep % bankSoal.length];
+        document.getElementById('study-title').innerText = `Materi: ${data.materi}`;
+        document.getElementById('study-content').innerText = data.penjelasan;
+        document.getElementById('pos-info').innerText = `Nomor ${currentStep + 1} / 40`;
+        
+        currentSoalObj = data.soal[Math.floor(Math.random() * data.soal.length)];
+        
+        // Terapkan preferensi sembunyi materi
+        applyStudyVisibility();
+    }
+
+    function startQuestion() {
+        isStudyMode = false;
+        document.getElementById('study-screen').style.display = 'none';
+        document.getElementById('quiz-screen').style.display = 'block';
+        
+        document.getElementById('q-text').innerText = currentSoalObj.q;
+        document.getElementById('lvl-info').innerText = currentSoalObj.lvl;
+        
+        const options = shuffle([...currentSoalObj.o]);
+        const container = document.getElementById('opt-container');
+        container.innerHTML = '';
+        
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'option';
+            btn.innerText = opt;
+            btn.onclick = () => checkAnswer(btn, opt);
+            container.appendChild(btn);
+        });
+    }
+
+    function checkAnswer(btn, choice) {
+        if (answered) return;
+        answered = true;
+        
+        const correct = currentSoalObj.a;
+        const allBtns = document.querySelectorAll('.option');
+        
+        if (choice === correct) {
+            btn.classList.add('correct');
+            score++;
+        } else {
+            btn.classList.add('wrong');
+            allBtns.forEach(b => { if(b.innerText === correct) b.classList.add('correct'); });
+        }
+
+        allBtns.forEach(b => b.disabled = true);
+        
+        // Selalu tampilkan pembahasan soal setelah menjawab
+        document.getElementById('ex-text').innerText = currentSoalObj.ex;
+        document.getElementById('ex-box').style.display = 'block'; 
+        
+        document.getElementById('next-btn').style.visibility = 'visible';
+    }
+
+    function nextStep() {
+        currentStep++;
+        if (currentStep < 40) {
+            document.getElementById('progress-fill').style.width = `${(currentStep / 40) * 100}%`;
+            initStep();
+        } else {
+            showResult();
+        }
+    }
+
+    function showResult() {
+        document.getElementById('quiz-screen').style.display = 'none';
+        document.getElementById('study-screen').style.display = 'none';
+        const res = document.getElementById('result-screen');
+        res.style.display = 'block';
+        const finalVal = (score / 40) * 100;
+        document.getElementById('final-score').innerText = finalVal.toFixed(0);
+        
+        let comment = "Belajar lagi ya!";
+        if(finalVal >= 80) comment = "Luar biasa, Halberg! Kamu siap ujian.";
+        else if(finalVal >= 70) comment = "Bagus, sedikit lagi sempurna!";
+        document.getElementById('final-comment').innerText = comment;
+    }
+
+    initStep();
+</script>
+</body>
+</html>
